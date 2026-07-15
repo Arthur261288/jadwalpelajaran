@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jadwal Pelajaran SD — Generator Anti Bentrok</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy: #16324A;
+    --navy-deep: #0E2436;
+    --paper: #F4F6F8;
+    --paper-card: #FFFFFF;
+    --line: #DDE3E8;
+    --teal: #2A8C82;
+    --teal-soft: #E4F3F1;
+    --amber: #DD9A2B;
+    --amber-soft: #FBF0DC;
+    --ink: #1B2B36;
+    --ink-soft: #5B6B76;
+    --break-bg: #EFEAE0;
+    --danger: #C24545;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    padding:32px 20px 60px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  header{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    flex-wrap:wrap; gap:16px;
+    border-bottom:3px solid var(--navy);
+    padding-bottom:18px; margin-bottom:26px;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--teal); font-weight:600; margin-bottom:6px;
+  }
+  h1{
+    font-family:'Fraunces',serif; font-weight:600; font-size:34px; line-height:1.05;
+    margin:0; color:var(--navy-deep);
+  }
+  header p{margin:6px 0 0; color:var(--ink-soft); font-size:14.5px; max-width:520px;}
+  .badge{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--navy);
+    background:var(--teal-soft); border:1px solid var(--teal); border-radius:999px;
+    padding:5px 12px; white-space:nowrap;
+  }
+
+  .panel{
+    background:var(--paper-card); border:1px solid var(--line); border-radius:14px;
+    padding:22px 24px; margin-bottom:22px;
+    box-shadow:0 1px 2px rgba(20,40,60,.04);
+  }
+  .panel-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px 20px;}
+  label{
+    display:block; font-size:11.5px; font-weight:600; letter-spacing:.05em;
+    text-transform:uppercase; color:var(--ink-soft); margin-bottom:7px;
+  }
+  select,input[type=time],input[type=text],input[type=number]{
+    width:100%; padding:10px 12px; border:1.5px solid var(--line); border-radius:9px;
+    font-family:'Inter',sans-serif; font-size:14.5px; background:#fff; color:var(--ink);
+  }
+  select:focus,input:focus{outline:none; border-color:var(--teal);}
+  .btnrow{display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap;}
+  button{
+    font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px;
+    border-radius:9px; border:1.5px solid var(--navy); padding:10px 18px;
+    cursor:pointer; transition:transform .08s ease;
+  }
+  button.primary{background:var(--navy); color:#fff;}
+  button.primary:hover{background:var(--navy-deep);}
+  button.ghost{background:#fff; color:var(--navy); border-color:var(--line);}
+  button.ghost:hover{border-color:var(--navy);}
+  button.small{padding:6px 11px; font-size:12.5px; border-radius:7px;}
+  button.danger{background:#fff; color:var(--danger); border-color:#EFCFCF;}
+  button.danger:hover{background:#FBEDED;}
+  button:active{transform:scale(.97);}
+  button:disabled{opacity:.45; cursor:not-allowed;}
+
+  .summary{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:22px;}
+  .stat{
+    flex:1 1 150px; background:var(--paper-card); border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px;
+  }
+  .stat .n{font-family:'Fraunces',serif; font-size:26px; color:var(--navy-deep); font-weight:600;}
+  .stat .l{font-size:11.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.05em; margin-top:2px;}
+  .stat.warn .n{color:var(--danger);}
+
+  .tablecard{
+    background:var(--paper-card); border:1px solid var(--line); border-radius:14px;
+    overflow:hidden; margin-bottom:24px;
+  }
+  .tablecard-head{
+    padding:16px 20px; border-bottom:1px solid var(--line);
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;
+  }
+  .tablecard-head h2{font-family:'Fraunces',serif; font-size:19px; margin:0; color:var(--navy-deep); font-weight:600;}
+  .tablecard-head p{margin:2px 0 0; font-size:12.5px; color:var(--ink-soft);}
+
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  thead th{
+    background:var(--navy); color:#fff; font-weight:600; font-size:12px;
+    text-transform:uppercase; letter-spacing:.04em; padding:11px 8px; text-align:center;
+  }
+  thead th:first-child{text-align:left; padding-left:16px; width:120px;}
+  tbody td{padding:9px 8px; text-align:center; border-bottom:1px solid var(--line); vertical-align:middle;}
+  tbody td:first-child{
+    text-align:left; padding-left:16px; font-family:'IBM Plex Mono',monospace; font-size:11.5px;
+    color:var(--ink-soft); white-space:nowrap;
+  }
+  tbody tr:last-child td{border-bottom:none;}
+  .cell-subject{
+    display:inline-block; padding:5px 9px; border-radius:7px; background:var(--teal-soft);
+    color:#14524B; font-weight:600; font-size:12.5px; line-height:1.3;
+  }
+  .cell-fixed .cell-subject{background:var(--amber-soft); color:#8C5E10;}
+  .row-break td{
+    background:var(--break-bg); color:#7A6E58; font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; padding:6px 8px;
+  }
+  .row-break td:first-child{padding-left:16px;}
+  .empty-cell{color:#C7CED3;}
+
+  .legend{display:flex; gap:18px; flex-wrap:wrap; padding:14px 20px; border-top:1px solid var(--line); font-size:12.5px; color:var(--ink-soft);}
+  .legend span{display:inline-flex; align-items:center; gap:7px;}
+  .dot{width:10px; height:10px; border-radius:3px; display:inline-block;}
+
+  /* editable subject table */
+  .subj-table{width:100%; border-collapse:collapse;}
+  .subj-table th{
+    text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em;
+    color:var(--ink-soft); padding:6px 10px; border-bottom:2px solid var(--line);
+  }
+  .subj-table td{padding:6px 10px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  .subj-table input[type=text]{min-width:180px;}
+  .subj-table input[type=number]{width:80px; text-align:center;}
+  .subj-table tr:last-child td{border-bottom:none;}
+  .subj-actions{display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-top:1px solid var(--line); flex-wrap:wrap; gap:10px;}
+  .subj-total{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--navy);}
+  .col-jp{width:110px;}
+  .col-jenis{width:160px;}
+  .col-del{width:44px; text-align:center;}
+
+  .daycols{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px;}
+  .daycol{border:1px solid var(--line); border-radius:10px; padding:12px;}
+  .daycol h3{margin:0 0 8px; font-size:12.5px; font-family:'IBM Plex Mono',monospace; letter-spacing:.04em; color:var(--navy); text-transform:uppercase;}
+  .daycol .fixedline{
+    font-size:11px; color:#8C5E10; background:var(--amber-soft); padding:5px 8px;
+    border-radius:6px; margin-bottom:9px; line-height:1.3;
+  }
+  .daycol .periodcount{display:flex; align-items:center; gap:8px; margin-bottom:9px;}
+  .daycol .periodcount label{margin:0; text-transform:none; font-size:11.5px; font-weight:500; color:var(--ink-soft);}
+  .daycol .periodcount input{width:56px; padding:6px 8px; text-align:center;}
+  .daycol .selwrap select{margin-bottom:7px; font-size:12.5px; padding:7px 8px;}
+  .daycol .selwrap select:last-child{margin-bottom:0;}
+
+  footer{text-align:center; color:var(--ink-soft); font-size:12px; margin-top:30px;}
+
+  .print-only-footer{display:none;}
+
+  @media print{
+    @page{ size: landscape; margin: 10mm 12mm; }
+    *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;}
+    body{padding:0; background:#fff;}
+    header, footer, .panel, .no-print{display:none !important;}
+    .wrap{max-width:none;}
+    .summary{margin-bottom:16px;}
+    .stat{padding:12px 14px;}
+    .tablecard{border:none; box-shadow:none; margin-bottom:0;}
+    .tablecard-head{
+      border-bottom:3px solid var(--navy); padding:0 0 14px; margin-bottom:16px;
+    }
+    .tablecard-head h2{font-size:23px;}
+    .tablecard-head p{display:none;}
+    table{width:100%;}
+    thead th{background:var(--navy) !important; color:#fff !important; font-size:12.5px; padding:11px 8px;}
+    tbody td{font-size:13.5px; padding:10px 8px;}
+    tbody tr:nth-child(even) td{background:#F5F8F9;}
+    .cell-subject{box-shadow:none;}
+    .cell-fixed .cell-subject{font-weight:700;}
+    tr{page-break-inside:avoid;}
+    .legend{border-top:2px solid var(--line); padding:14px 2px 0; margin-top:4px;}
+    .print-only-footer{
+      display:flex; justify-content:space-between; align-items:center;
+      margin-top:16px; padding-top:10px; border-top:1px solid var(--line);
+      font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink-soft); letter-spacing:.03em;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="eyebrow">Generator Jadwal · SD/MI</div>
+      <h1>Jadwal Pelajaran Anti&nbsp;Bentrok</h1>
+      <p>Pilih kelas untuk memuat referensi mata pelajaran &amp; JP dari Struktur Kurikulum SD (Permendikdasmen No. 13/2025), lalu susun sendiri mata pelajaran tiap hari secara manual sesuai kebutuhan sekolah Anda.</p>
+    </div>
+    <div class="badge">1 JP = 35 menit</div>
+  </header>
+
+  <div class="panel no-print">
+    <div class="panel-grid">
+      <div>
+        <label for="kelasSelect">Pilih Kelas / Fase</label>
+        <select id="kelasSelect">
+          <option value="">— pilih kelas —</option>
+          <option value="1">Kelas 1 (Fase A)</option>
+          <option value="2">Kelas 2 (Fase A)</option>
+          <option value="3">Kelas 3 (Fase B)</option>
+          <option value="4">Kelas 4 (Fase B)</option>
+          <option value="5">Kelas 5 (Fase C)</option>
+          <option value="6">Kelas 6 (Fase C)</option>
+        </select>
+      </div>
+      <div>
+        <label for="jamMulai">Jam Mulai Pelajaran</label>
+        <input type="time" id="jamMulai" value="07:00">
+      </div>
+      <div>
+        <label for="namaSekolah">Nama Sekolah (opsional)</label>
+        <input type="text" id="namaSekolah" placeholder="SD Negeri ...">
+      </div>
+      <div>
+        <label for="tahunAjaran">Tahun Ajaran (opsional)</label>
+        <input type="text" id="tahunAjaran" placeholder="2026/2027">
+      </div>
+      <div class="btnrow">
+        <button class="primary" id="btnPrint">🖨️ Cetak / Simpan PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="editPanelWrap"></div>
+  <div id="dayPanelWrap"></div>
+  <div id="output"></div>
+
+  <footer>Daftar mapel &amp; JP referensi mengacu pada lampiran Struktur Kurikulum SD (Permendikdasmen No. 13/2025), namun dapat Anda ubah bebas. Penempatan mata pelajaran di tiap hari &amp; jam ke berapa diisi manual sepenuhnya oleh Anda pada panel "Susun Mata Pelajaran per Hari".</footer>
+
+</div>
+
+<script>
+/* ---------------- Data kurikulum default: JP per minggu per mapel, per kelas ---------------- */
+const CURRICULUM = {
+  1: [
+    ['AGM','Pendidikan Agama & Budi Pekerti',4],
+    ['PPK','Pendidikan Pancasila',5],
+    ['BIN','Bahasa Indonesia',8],
+    ['MTK','Matematika',5],
+    ['PJOK','PJOK',4],
+    ['SBD','Seni dan Budaya',4],
+    ['BJW','Bahasa Jawa',2],
+  ],
+  2: [
+    ['AGM','Pendidikan Agama & Budi Pekerti',4],
+    ['PPK','Pendidikan Pancasila',5],
+    ['BIN','Bahasa Indonesia',9],
+    ['MTK','Matematika',6],
+    ['PJOK','PJOK',4],
+    ['SBD','Seni dan Budaya',4],
+    ['BJW','Bahasa Jawa',2],
+  ],
+  3: [
+    ['AGM','Pendidikan Agama & Budi Pekerti',4],
+    ['PPK','Pendidikan Pancasila',5],
+    ['BIN','Bahasa Indonesia',7],
+    ['MTK','Matematika',6],
+    ['IPAS','IPAS',6],
+    ['PJOK','PJOK',4],
+    ['SBD','Seni dan Budaya',4],
+    ['ING','Bahasa Inggris',2],
+    ['BJW','Bahasa Jawa',2],
+  ],
+  4: [
+    ['AGM','Pendidikan Agama & Budi Pekerti',4],
+    ['PPK','Pendidikan Pancasila',5],
+    ['BIN','Bahasa Indonesia',7],
+    ['MTK','Matematika',6],
+    ['IPAS','IPAS',6],
+    ['PJOK','PJOK',4],
+    ['SBD','Seni dan Budaya',4],
+    ['ING','Bahasa Inggris',2],
+    ['BJW','Bahasa Jawa',2],
+  ],
+  5: [
+    ['AGM','Pendidikan Agama & Budi Pekerti',4],
+    ['PPK','Pendidikan Pancasila',5],
+    ['BIN','Bahasa Indonesia',7],
+    ['MTK','Matematika',6],
+    ['IPAS','IPAS',6],
+    ['PJOK','PJOK',4],
+    ['SBD','Seni dan Budaya',4],
+    ['ING','Bahasa Inggris',2],
+    ['KOD','Koding & Kecerdasan Artifisial',2],
+    ['BJW','Bahasa Jawa',2],
+  ],
+  6: [
+    ['AGM','Pendidikan Agama & Budi Pekerti',4],
+    ['PPK','Pendidikan Pancasila',5],
+    ['BIN','Bahasa Indonesia',7],
+    ['MTK','Matematika',6],
+    ['IPAS','IPAS',6],
+    ['PJOK','PJOK',4],
+    ['SBD','Seni dan Budaya',4],
+    ['ING','Bahasa Inggris',2],
+    ['KOD','Koding & Kecerdasan Artifisial',2],
+    ['BJW','Bahasa Jawa',2],
+  ],
+};
+
+const DAYS = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const DEFAULT_ROUTINE = [
+  {code:'UPC', name:'Upacara Bendera', hours:0, type:'rutin'},
+  {code:'SPN', name:'SPN (Sekolah Plus Ngaji)', hours:0, type:'rutin'},
+  {code:'PMB', name:'Pembiasaan', hours:0, type:'rutin'},
+];
+const DEFAULT_EXTRA = [
+  {code:'KOK', name:'Kokurikuler', hours:0, type:'mapel'},
+  {code:'EKS', name:'Ekstrakurikuler', hours:0, type:'mapel'},
+];
+// jam ke-1 tiap hari diisi awal dengan salah satu kegiatan rutin di atas (bisa diubah manual)
+const DEFAULT_FIRST_SLOT = {Senin:'UPC', Selasa:'SPN', Rabu:'SPN', Kamis:'SPN', Jumat:'SPN', Sabtu:'PMB'};
+const JP_MINUTES = 35;
+const BREAK_MINUTES = 30;
+const BREAK_AFTER_PERIOD = [3]; // istirahat 1 kali saja, setelah slot ke-3
+
+let currentKelas = null;
+let customSubjects = [];   // [{code,name,hours,type:'mapel'|'rutin'}] - daftar mapel & kegiatan rutin, semua bisa diedit manual
+let newSubjectCounter = 1;
+let dayPeriods = {};        // {day: jumlah jam per hari}
+let manualSchedule = {};    // {day: [code, code, ...]} - isi manual tiap jam ke-
+
+const DEFAULT_DAY_PERIODS = {Senin:6, Selasa:6, Rabu:6, Kamis:6, Jumat:6, Sabtu:4};
+
+/* ---------------- Inisialisasi state penyusunan manual ---------------- */
+function initManualState(){
+  dayPeriods = {...DEFAULT_DAY_PERIODS};
+  manualSchedule = {};
+  DAYS.forEach(d=>{
+    manualSchedule[d] = new Array(dayPeriods[d]).fill('');
+    if(manualSchedule[d].length > 0) manualSchedule[d][0] = DEFAULT_FIRST_SLOT[d] || '';
+  });
+}
+function resizeDay(day, n){
+  n = Math.max(0, Math.min(12, isNaN(n) ? 0 : n));
+  dayPeriods[day] = n;
+  const arr = manualSchedule[day] || [];
+  if(arr.length < n){ while(arr.length < n) arr.push(''); }
+  else if(arr.length > n){ arr.length = n; }
+  manualSchedule[day] = arr;
+}
+
+function computeTimeline(maxPeriods, startStr){
+  const [h,m] = startStr.split(':').map(Number);
+  let cursor = h*60+m;
+  const periodTimes = [];
+  const breaksBeforePeriod = {};
+  for(let p=1;p<=maxPeriods;p++){
+    if(BREAK_AFTER_PERIOD.includes(p-1)){
+      const bStart = cursor, bEnd = cursor+BREAK_MINUTES;
+      breaksBeforePeriod[p] = {start:bStart,end:bEnd};
+      cursor = bEnd;
+    }
+    periodTimes.push({start:cursor, end:cursor+JP_MINUTES});
+    cursor += JP_MINUTES;
+  }
+  return {periodTimes, breaksBeforePeriod};
+}
+function fmt(mins){
+  const h = Math.floor(mins/60)%24, m = mins%60;
+  return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+}
+
+/* ---------------- Panel mapel yang bisa diisi/diedit manual ---------------- */
+function renderEditPanel(){
+  const wrap = document.getElementById('editPanelWrap');
+  if(!currentKelas){ wrap.innerHTML=''; return; }
+
+  const rows = customSubjects.map((s,i)=>`
+    <tr>
+      <td><input type="text" class="subjName" data-i="${i}" value="${escapeHtml(s.name)}" placeholder="Nama mapel / kegiatan"></td>
+      <td class="col-jp"><input type="number" class="subjHours" data-i="${i}" value="${s.hours}" min="0" max="20" step="1"></td>
+      <td class="col-jenis">
+        <select class="subjType" data-i="${i}">
+          <option value="mapel" ${s.type==='mapel'?'selected':''}>Mata Pelajaran</option>
+          <option value="rutin" ${s.type==='rutin'?'selected':''}>Kegiatan Rutin</option>
+        </select>
+      </td>
+      <td class="col-del"><button class="small danger subjDel" data-i="${i}" title="Hapus baris">✕</button></td>
+    </tr>`).join('');
+
+  wrap.innerHTML = `
+    <div class="panel no-print" id="editPanel">
+      <div class="tablecard-head" style="padding:0 0 14px; border:none;">
+        <h2 style="font-size:17px;">Mata Pelajaran &amp; Kegiatan Rutin</h2>
+        <p style="color:var(--ink-soft); font-size:12.5px;">Isi/ubah manual — nama, JP referensi per minggu, dan jenis (Mata Pelajaran atau Kegiatan Rutin seperti Upacara Bendera/SPN/Pembiasaan). Semua baris di sini otomatis muncul sebagai pilihan pada panel penyusunan jadwal per hari di bawah.</p>
+      </div>
+      <table class="subj-table">
+        <thead><tr><th>Nama</th><th class="col-jp">JP / Minggu (ref.)</th><th class="col-jenis">Jenis</th><th class="col-del"></th></tr></thead>
+        <tbody id="subjRows">${rows}</tbody>
+      </table>
+      <div class="subj-actions" style="padding-left:0; padding-right:0;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="ghost small" id="btnTambahMapel">+ Tambah Mapel</button>
+          <button class="ghost small" id="btnTambahRutin">+ Tambah Kegiatan Rutin</button>
+        </div>
+        <span class="subj-total" id="subjTotalLabel"></span>
+      </div>
+    </div>`;
+
+
+  document.querySelectorAll('.subjName').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      customSubjects[+e.target.dataset.i].name = e.target.value;
+      renderDayPanel();
+      renderSchedulePart();
+      updateTotalLabel();
+    });
+  });
+  document.querySelectorAll('.subjHours').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const v = parseInt(e.target.value,10);
+      customSubjects[+e.target.dataset.i].hours = isNaN(v) ? 0 : Math.max(0, v);
+      updateTotalLabel();
+    });
+  });
+  document.querySelectorAll('.subjType').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      customSubjects[+e.target.dataset.i].type = e.target.value;
+      renderDayPanel();
+      renderSchedulePart();
+    });
+  });
+  document.querySelectorAll('.subjDel').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      const removed = customSubjects.splice(+e.target.dataset.i, 1)[0];
+      if(removed){
+        DAYS.forEach(d=>{
+          manualSchedule[d] = manualSchedule[d].map(code => code===removed.code ? '' : code);
+        });
+      }
+      renderEditPanel();
+      renderDayPanel();
+      renderSchedulePart();
+    });
+  });
+  document.getElementById('btnTambahMapel').addEventListener('click', ()=>{
+    customSubjects.push({code:'X'+(newSubjectCounter++), name:'Mapel Baru', hours:1, type:'mapel'});
+    renderEditPanel();
+    renderDayPanel();
+  });
+  document.getElementById('btnTambahRutin').addEventListener('click', ()=>{
+    customSubjects.push({code:'X'+(newSubjectCounter++), name:'Kegiatan Rutin Baru', hours:0, type:'rutin'});
+    renderEditPanel();
+    renderDayPanel();
+  });
+
+  updateTotalLabel();
+}
+
+/* ---------------- Panel susun mapel & kegiatan rutin per hari (manual sepenuhnya) ---------------- */
+function renderDayPanel(){
+  const wrap = document.getElementById('dayPanelWrap');
+  if(!currentKelas){ wrap.innerHTML=''; return; }
+
+  wrap.innerHTML = `
+    <div class="panel no-print" id="dayPanel">
+      <div class="tablecard-head" style="padding:0 0 14px; border:none;">
+        <h2 style="font-size:17px;">Susun Jadwal per Hari (Manual)</h2>
+        <p style="color:var(--ink-soft); font-size:12.5px;">Atur jumlah jam tiap hari, lalu pilih mata pelajaran atau kegiatan rutin (Upacara Bendera/SPN/Pembiasaan/lainnya) untuk tiap jam ke- secara manual. Semua pilihan bisa diletakkan di jam berapa pun dan hari apa pun.</p>
+      </div>
+      <div class="daycols" id="daycols">${DAYS.map(d=>dayColumnHtml(d)).join('')}</div>
+    </div>`;
+
+  document.querySelectorAll('.dayCountInput').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const d = e.target.dataset.day;
+      resizeDay(d, parseInt(e.target.value,10));
+      renderDayPanel();
+      renderSchedulePart();
+    });
+  });
+  document.querySelectorAll('.manualSel').forEach(sel=>{
+    sel.addEventListener('change', e=>{
+      const d = e.target.dataset.day, idx = +e.target.dataset.idx;
+      manualSchedule[d][idx] = e.target.value;
+      renderSchedulePart();
+    });
+  });
+}
+function dayColumnHtml(d){
+  const n = dayPeriods[d] || 0;
+  let selects = '';
+  for(let i=0;i<n;i++){
+    selects += `<select class="manualSel" data-day="${d}" data-idx="${i}">${subjectOptions(manualSchedule[d][i])}</select>`;
+  }
+  return `<div class="daycol">
+    <h3>${d}</h3>
+    <div class="periodcount"><label>Jumlah jam:</label><input type="number" class="dayCountInput" data-day="${d}" min="0" max="12" value="${n}"></div>
+    <div class="selwrap">${selects}</div>
+  </div>`;
+}
+function subjectOptions(selectedCode){
+  const rutin = customSubjects.filter(s=>s.type==='rutin' && s.name.trim()!=='');
+  const mapel = customSubjects.filter(s=>s.type!=='rutin' && s.name.trim()!=='');
+  let opts = `<option value="">— kosong —</option>`;
+  if(rutin.length){
+    opts += `<optgroup label="Kegiatan Rutin">`;
+    rutin.forEach(s=>{ opts += `<option value="${s.code}" ${s.code===selectedCode?'selected':''}>${escapeHtml(s.name)}</option>`; });
+    opts += `</optgroup>`;
+  }
+  if(mapel.length){
+    opts += `<optgroup label="Mata Pelajaran">`;
+    mapel.forEach(s=>{ opts += `<option value="${s.code}" ${s.code===selectedCode?'selected':''}>${escapeHtml(s.name)}</option>`; });
+    opts += `</optgroup>`;
+  }
+  return opts;
+}
+function updateTotalLabel(){
+  const el = document.getElementById('subjTotalLabel');
+  if(!el) return;
+  const total = customSubjects.reduce((a,s)=>a + (s.hours>0 ? s.hours : 0),0);
+  el.textContent = `Total: ${total} JP / minggu`;
+}
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------------- Render jadwal + rekap dari susunan manual ---------------- */
+function renderSchedulePart(){
+  if(!currentKelas){ document.getElementById('output').innerHTML=''; return; }
+  const startStr = document.getElementById('jamMulai').value || '07:00';
+  const sekolah = document.getElementById('namaSekolah').value.trim();
+  const tahun = document.getElementById('tahunAjaran').value.trim();
+
+  const anyPeriod = DAYS.some(d=> (dayPeriods[d]||0) > 0);
+  if(!anyPeriod){
+    document.getElementById('output').innerHTML = `<div class="panel"><p style="margin:0;color:var(--ink-soft);">Jumlah jam semua hari masih 0. Atur jumlah jam &amp; isi mapel/kegiatan rutin pada panel "Susun Jadwal per Hari" di atas.</p></div>`;
+    return;
+  }
+
+  const schedule = {};
+  let mapelFilled = 0, rutinFilled = 0;
+  DAYS.forEach(d=>{
+    schedule[d] = (manualSchedule[d]||[]).map(code=>{
+      if(!code) return null;
+      const item = customSubjects.find(s=>s.code===code);
+      if(!item) return null;
+      if(item.type==='rutin') rutinFilled++; else mapelFilled++;
+      return {label:item.name, code:item.code, type:item.type};
+    });
+  });
+
+  const maxPeriods = Math.max(...DAYS.map(d=>schedule[d].length));
+  const {periodTimes, breaksBeforePeriod} = computeTimeline(maxPeriods, startStr);
+
+  let html = '';
+
+  html += `<div class="summary">
+    <div class="stat"><div class="n">${currentKelas}</div><div class="l">Kelas</div></div>
+    <div class="stat"><div class="n">${mapelFilled}</div><div class="l">Total JP Mapel Terisi / Minggu</div></div>
+    <div class="stat"><div class="n">${rutinFilled}</div><div class="l">Total Kegiatan Rutin Terisi / Minggu</div></div>
+    <div class="stat"><div class="n">${maxPeriods}</div><div class="l">Jam Terpadat / Hari</div></div>
+  </div>`;
+
+  html += `<div class="tablecard">
+    <div class="tablecard-head">
+      <h2>${sekolah ? sekolah+' — ' : ''}Jadwal Pelajaran Kelas ${currentKelas}${tahun ? ' · TA '+tahun : ''}</h2>
+      <span class="badge">Mulai pukul ${startStr}</span>
+    </div>
+    <table>
+      <thead><tr><th>Jam ke / Waktu</th>${DAYS.map(d=>`<th>${d}</th>`).join('')}</tr></thead>
+      <tbody>`;
+
+  for(let p=1; p<=maxPeriods; p++){
+    if(breaksBeforePeriod[p]){
+      const b = breaksBeforePeriod[p];
+      html += `<tr class="row-break"><td>${fmt(b.start)}–${fmt(b.end)}</td><td colspan="${DAYS.length}">Istirahat</td></tr>`;
+    }
+    const t = periodTimes[p-1];
+    html += `<tr><td>Ke-${p}<br>${fmt(t.start)}–${fmt(t.end)}</td>`;
+    DAYS.forEach(d=>{
+      const item = schedule[d][p-1];
+      if(!item){ html += `<td class="empty-cell">—</td>`; return; }
+      const cls = item.type==='rutin' ? 'cell-fixed' : '';
+      html += `<td class="${cls}"><span class="cell-subject">${item.label}</span></td>`;
+    });
+    html += `</tr>`;
+  }
+
+  html += `</tbody></table>
+    <div class="legend">
+      <span><span class="dot" style="background:#DD9A2B"></span>Kegiatan rutin (Upacara / SPN / Pembiasaan)</span>
+      <span><span class="dot" style="background:#2A8C82"></span>Mata pelajaran</span>
+      <span><span class="dot" style="background:#C9BFA5"></span>Istirahat (30 menit, 1 kali)</span>
+    </div>
+    <div class="print-only-footer">
+      <span>${sekolah ? escapeHtml(sekolah) : 'Jadwal Pelajaran'} · Kelas ${currentKelas}${tahun ? ' · TA '+escapeHtml(tahun) : ''}</span>
+      <span>Dicetak ${new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'})}</span>
+    </div>
+  </div>`;
+
+  document.getElementById('output').innerHTML = html;
+}
+
+/* ---------------- Event wiring ---------------- */
+document.getElementById('kelasSelect').addEventListener('change', e=>{
+  const k = e.target.value;
+  if(k){
+    currentKelas = Number(k);
+    customSubjects = CURRICULUM[currentKelas].map(([code,name,hours])=>({code,name,hours,type:'mapel'}))
+      .concat(DEFAULT_EXTRA.map(x=>({...x})))
+      .concat(DEFAULT_ROUTINE.map(r=>({...r})));
+    initManualState();
+    renderEditPanel();
+    renderDayPanel();
+    renderSchedulePart();
+  } else {
+    currentKelas = null;
+    customSubjects = [];
+    dayPeriods = {}; manualSchedule = {};
+    document.getElementById('editPanelWrap').innerHTML='';
+    document.getElementById('dayPanelWrap').innerHTML='';
+    document.getElementById('output').innerHTML='';
+  }
+});
+document.getElementById('jamMulai').addEventListener('change', ()=> renderSchedulePart());
+['namaSekolah','tahunAjaran'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=> renderSchedulePart());
+});
+document.getElementById('btnPrint').addEventListener('click', ()=> window.print());
+</script>
+</body>
+</html>
