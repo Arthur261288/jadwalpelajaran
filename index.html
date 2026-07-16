@@ -109,9 +109,9 @@
     background:var(--navy); color:#fff; font-weight:600; font-size:12px;
     text-transform:uppercase; letter-spacing:.04em; padding:11px 8px; text-align:center;
   }
-  thead th:first-child{text-align:left; padding-left:16px; width:120px;}
+  thead th:first-child, thead th:nth-child(2){text-align:left; padding-left:16px; width:100px;}
   tbody td{padding:9px 8px; text-align:center; border-bottom:1px solid var(--line); vertical-align:middle;}
-  tbody td:first-child{
+  tbody td:first-child, tbody td:nth-child(2){
     text-align:left; padding-left:16px; font-family:'IBM Plex Mono',monospace; font-size:11.5px;
     color:var(--ink-soft); white-space:nowrap;
   }
@@ -145,6 +145,7 @@
   .subj-actions{display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-top:1px solid var(--line); flex-wrap:wrap; gap:10px;}
   .subj-total{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--navy);}
   .col-jp{width:110px;}
+  .col-menit{width:110px;}
   .col-jenis{width:160px;}
   .col-del{width:44px; text-align:center;}
 
@@ -222,8 +223,20 @@
         </select>
       </div>
       <div>
-        <label for="jamMulai">Jam Mulai Pelajaran</label>
-        <input type="time" id="jamMulai" value="07:00">
+        <label for="jamMulai">Jam Masuk</label>
+        <select id="jamMulai">
+          <option value="06:45">06.45</option>
+          <option value="07:00" selected>07.00</option>
+          <option value="07:15">07.15</option>
+        </select>
+      </div>
+      <div>
+        <label for="breakAfter">Istirahat Setelah Jam Ke- (Manual)</label>
+        <select id="breakAfter"></select>
+      </div>
+      <div>
+        <label for="breakDurasi">Durasi Istirahat (menit)</label>
+        <input type="number" id="breakDurasi" min="5" max="60" step="5" value="30">
       </div>
       <div>
         <label for="namaSekolah">Nama Sekolah (opsional)</label>
@@ -317,20 +330,19 @@ const CURRICULUM = {
 };
 
 const DAYS = ['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+const JP_MINUTES = 35; // durasi standar 1 JP (menit) — dipakai sbg default bila durasi kegiatan tidak diisi
+const PEMBIASAAN_MINUTES = 15; // durasi khusus untuk kegiatan Pembiasaan
 const DEFAULT_ROUTINE = [
-  {code:'UPC', name:'Upacara Bendera', hours:0, type:'rutin'},
-  {code:'SPN', name:'SPN (Sekolah Plus Ngaji)', hours:0, type:'rutin'},
-  {code:'PMB', name:'Pembiasaan', hours:0, type:'rutin'},
+  {code:'UPC', name:'Upacara Bendera', hours:0, type:'rutin', minutes:JP_MINUTES},
+  {code:'SPN', name:'SPN (Sekolah Plus Ngaji)', hours:0, type:'rutin', minutes:JP_MINUTES},
+  {code:'PMB', name:'Pembiasaan', hours:0, type:'rutin', minutes:PEMBIASAAN_MINUTES},
 ];
 const DEFAULT_EXTRA = [
-  {code:'KOK', name:'Kokurikuler', hours:0, type:'mapel'},
-  {code:'EKS', name:'Ekstrakurikuler', hours:0, type:'mapel'},
+  {code:'KOK', name:'Kokurikuler', hours:0, type:'mapel', minutes:JP_MINUTES},
+  {code:'EKS', name:'Ekstrakurikuler', hours:0, type:'mapel', minutes:JP_MINUTES},
 ];
 // jam ke-1 tiap hari diisi awal dengan salah satu kegiatan rutin di atas (bisa diubah manual)
 const DEFAULT_FIRST_SLOT = {Senin:'UPC', Selasa:'SPN', Rabu:'SPN', Kamis:'SPN', Jumat:'SPN', Sabtu:'PMB'};
-const JP_MINUTES = 35;
-const BREAK_MINUTES = 30;
-const BREAK_AFTER_PERIOD = [3]; // istirahat 1 kali saja, setelah slot ke-3
 
 let currentKelas = null;
 let customSubjects = [];   // [{code,name,hours,type:'mapel'|'rutin'}] - daftar mapel & kegiatan rutin, semua bisa diedit manual
@@ -358,26 +370,49 @@ function resizeDay(day, n){
   manualSchedule[day] = arr;
 }
 
-function computeTimeline(maxPeriods, startStr){
+// Satu timeline bersama untuk semua hari (kolom "Waktu" tunggal di sebelah "Jam ke-"),
+// selaras dengan praktik sekolah: jam ke-1, ke-2, dst dimulai di jam yang sama tiap hari.
+// Durasi tiap jam ke- mengikuti kegiatan dengan durasi terpanjang pada jam ke- tsb di
+// seluruh hari (mis. bila Senin jam ke-1 = Upacara 35 menit dan Sabtu jam ke-1 = Pembiasaan
+// 15 menit, slot jam ke-1 memakai 35 menit). Posisi & durasi istirahat diatur manual oleh guru.
+function computeSharedTimeline(schedule, maxPeriods, startStr, breakAfter, breakDur){
   const [h,m] = startStr.split(':').map(Number);
   let cursor = h*60+m;
   const periodTimes = [];
-  const breaksBeforePeriod = {};
+  let breakTime = null;
   for(let p=1;p<=maxPeriods;p++){
-    if(BREAK_AFTER_PERIOD.includes(p-1)){
-      const bStart = cursor, bEnd = cursor+BREAK_MINUTES;
-      breaksBeforePeriod[p] = {start:bStart,end:bEnd};
+    if(breakAfter>0 && (p-1)===breakAfter){
+      const bStart = cursor, bEnd = cursor+breakDur;
+      breakTime = {start:bStart, end:bEnd};
       cursor = bEnd;
     }
-    periodTimes.push({start:cursor, end:cursor+JP_MINUTES});
-    cursor += JP_MINUTES;
+    let dur = JP_MINUTES;
+    DAYS.forEach(d=>{
+      if(p<=schedule[d].length){
+        const item = schedule[d][p-1];
+        const itemDur = (item && item.minutes) ? item.minutes : JP_MINUTES;
+        if(itemDur > dur) dur = itemDur;
+      }
+    });
+    periodTimes.push({start:cursor, end:cursor+dur});
+    cursor += dur;
   }
-  return {periodTimes, breaksBeforePeriod};
+  return {periodTimes, breakTime};
 }
 function fmt(mins){
   const h = Math.floor(mins/60)%24, m = mins%60;
   return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
 }
+function populateBreakAfterSelect(){
+  const sel = document.getElementById('breakAfter');
+  if(!sel) return;
+  let opts = `<option value="0">Tanpa Istirahat</option>`;
+  for(let i=1;i<=12;i++){
+    opts += `<option value="${i}" ${i===3?'selected':''}>Setelah jam ke-${i}</option>`;
+  }
+  sel.innerHTML = opts;
+}
+populateBreakAfterSelect();
 
 /* ---------------- Panel mapel yang bisa diisi/diedit manual ---------------- */
 function renderEditPanel(){
@@ -388,6 +423,7 @@ function renderEditPanel(){
     <tr>
       <td><input type="text" class="subjName" data-i="${i}" value="${escapeHtml(s.name)}" placeholder="Nama mapel / kegiatan"></td>
       <td class="col-jp"><input type="number" class="subjHours" data-i="${i}" value="${s.hours}" min="0" max="20" step="1"></td>
+      <td class="col-menit"><input type="number" class="subjMinutes" data-i="${i}" value="${s.minutes||JP_MINUTES}" min="5" max="90" step="5" title="Durasi per jam ke- untuk kegiatan ini (menit)"></td>
       <td class="col-jenis">
         <select class="subjType" data-i="${i}">
           <option value="mapel" ${s.type==='mapel'?'selected':''}>Mata Pelajaran</option>
@@ -404,7 +440,7 @@ function renderEditPanel(){
         <p style="color:var(--ink-soft); font-size:12.5px;">Isi/ubah manual — nama, JP referensi per minggu, dan jenis (Mata Pelajaran atau Kegiatan Rutin seperti Upacara Bendera/SPN/Pembiasaan). Semua baris di sini otomatis muncul sebagai pilihan pada panel penyusunan jadwal per hari di bawah.</p>
       </div>
       <table class="subj-table">
-        <thead><tr><th>Nama</th><th class="col-jp">JP / Minggu (ref.)</th><th class="col-jenis">Jenis</th><th class="col-del"></th></tr></thead>
+        <thead><tr><th>Nama</th><th class="col-jp">JP / Minggu (ref.)</th><th class="col-menit">Durasi (menit)</th><th class="col-jenis">Jenis</th><th class="col-del"></th></tr></thead>
         <tbody id="subjRows">${rows}</tbody>
       </table>
       <div class="subj-actions" style="padding-left:0; padding-right:0;">
@@ -432,6 +468,13 @@ function renderEditPanel(){
       updateTotalLabel();
     });
   });
+  document.querySelectorAll('.subjMinutes').forEach(inp=>{
+    inp.addEventListener('input', e=>{
+      const v = parseInt(e.target.value,10);
+      customSubjects[+e.target.dataset.i].minutes = isNaN(v) || v<=0 ? JP_MINUTES : v;
+      renderSchedulePart();
+    });
+  });
   document.querySelectorAll('.subjType').forEach(sel=>{
     sel.addEventListener('change', e=>{
       customSubjects[+e.target.dataset.i].type = e.target.value;
@@ -453,12 +496,12 @@ function renderEditPanel(){
     });
   });
   document.getElementById('btnTambahMapel').addEventListener('click', ()=>{
-    customSubjects.push({code:'X'+(newSubjectCounter++), name:'Mapel Baru', hours:1, type:'mapel'});
+    customSubjects.push({code:'X'+(newSubjectCounter++), name:'Mapel Baru', hours:1, type:'mapel', minutes:JP_MINUTES});
     renderEditPanel();
     renderDayPanel();
   });
   document.getElementById('btnTambahRutin').addEventListener('click', ()=>{
-    customSubjects.push({code:'X'+(newSubjectCounter++), name:'Kegiatan Rutin Baru', hours:0, type:'rutin'});
+    customSubjects.push({code:'X'+(newSubjectCounter++), name:'Kegiatan Rutin Baru', hours:0, type:'rutin', minutes:JP_MINUTES});
     renderEditPanel();
     renderDayPanel();
   });
@@ -555,12 +598,14 @@ function renderSchedulePart(){
       const item = customSubjects.find(s=>s.code===code);
       if(!item) return null;
       if(item.type==='rutin') rutinFilled++; else mapelFilled++;
-      return {label:item.name, code:item.code, type:item.type};
+      return {label:item.name, code:item.code, type:item.type, minutes:item.minutes};
     });
   });
 
   const maxPeriods = Math.max(...DAYS.map(d=>schedule[d].length));
-  const {periodTimes, breaksBeforePeriod} = computeTimeline(maxPeriods, startStr);
+  const breakAfter = parseInt(document.getElementById('breakAfter').value,10) || 0;
+  const breakDurasi = parseInt(document.getElementById('breakDurasi').value,10) || 30;
+  const {periodTimes, breakTime} = computeSharedTimeline(schedule, maxPeriods, startStr, breakAfter, breakDurasi);
 
   let html = '';
 
@@ -577,17 +622,18 @@ function renderSchedulePart(){
       <span class="badge">Mulai pukul ${startStr}</span>
     </div>
     <table>
-      <thead><tr><th>Jam ke / Waktu</th>${DAYS.map(d=>`<th>${d}</th>`).join('')}</tr></thead>
+      <thead><tr><th>Jam Ke-</th><th>Waktu</th>${DAYS.map(d=>`<th>${d}</th>`).join('')}</tr></thead>
       <tbody>`;
 
   for(let p=1; p<=maxPeriods; p++){
-    if(breaksBeforePeriod[p]){
-      const b = breaksBeforePeriod[p];
-      html += `<tr class="row-break"><td>${fmt(b.start)}–${fmt(b.end)}</td><td colspan="${DAYS.length}">Istirahat</td></tr>`;
+    if(breakAfter>0 && (p-1)===breakAfter && breakTime){
+      html += `<tr class="row-break"><td colspan="2">${fmt(breakTime.start)}–${fmt(breakTime.end)}</td><td colspan="${DAYS.length}">Istirahat</td></tr>`;
     }
     const t = periodTimes[p-1];
-    html += `<tr><td>Ke-${p}<br>${fmt(t.start)}–${fmt(t.end)}</td>`;
+    html += `<tr><td>Ke-${p}</td><td>${fmt(t.start)}–${fmt(t.end)}</td>`;
     DAYS.forEach(d=>{
+      const dayLen = schedule[d].length;
+      if(p > dayLen){ html += `<td class="empty-cell">—</td>`; return; }
       const item = schedule[d][p-1];
       if(!item){ html += `<td class="empty-cell">—</td>`; return; }
       const cls = item.type==='rutin' ? 'cell-fixed' : '';
@@ -598,9 +644,9 @@ function renderSchedulePart(){
 
   html += `</tbody></table>
     <div class="legend">
-      <span><span class="dot" style="background:#DD9A2B"></span>Kegiatan rutin (Upacara / SPN / Pembiasaan)</span>
-      <span><span class="dot" style="background:#2A8C82"></span>Mata pelajaran</span>
-      <span><span class="dot" style="background:#C9BFA5"></span>Istirahat (30 menit, 1 kali)</span>
+      <span><span class="dot" style="background:#DD9A2B"></span>Kegiatan rutin (Upacara / SPN / Pembiasaan — durasi Pembiasaan default 15 menit)</span>
+      <span><span class="dot" style="background:#2A8C82"></span>Mata pelajaran (durasi standar ${JP_MINUTES} menit/JP)</span>
+      ${breakAfter>0 ? `<span><span class="dot" style="background:#C9BFA5"></span>Istirahat ${breakDurasi} menit, setelah jam ke-${breakAfter} (diatur manual)</span>` : `<span><span class="dot" style="background:#C9BFA5"></span>Tanpa istirahat (diatur manual)</span>`}
     </div>
     <div class="print-only-footer">
       <span>${sekolah ? escapeHtml(sekolah) : 'Jadwal Pelajaran'} · Kelas ${currentKelas}${tahun ? ' · TA '+escapeHtml(tahun) : ''}</span>
@@ -616,7 +662,7 @@ document.getElementById('kelasSelect').addEventListener('change', e=>{
   const k = e.target.value;
   if(k){
     currentKelas = Number(k);
-    customSubjects = CURRICULUM[currentKelas].map(([code,name,hours])=>({code,name,hours,type:'mapel'}))
+    customSubjects = CURRICULUM[currentKelas].map(([code,name,hours])=>({code,name,hours,type:'mapel',minutes:JP_MINUTES}))
       .concat(DEFAULT_EXTRA.map(x=>({...x})))
       .concat(DEFAULT_ROUTINE.map(r=>({...r})));
     initManualState();
@@ -633,6 +679,8 @@ document.getElementById('kelasSelect').addEventListener('change', e=>{
   }
 });
 document.getElementById('jamMulai').addEventListener('change', ()=> renderSchedulePart());
+document.getElementById('breakAfter').addEventListener('change', ()=> renderSchedulePart());
+document.getElementById('breakDurasi').addEventListener('input', ()=> renderSchedulePart());
 ['namaSekolah','tahunAjaran'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=> renderSchedulePart());
 });
