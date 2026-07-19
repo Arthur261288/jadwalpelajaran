@@ -21,6 +21,9 @@
     --ink-soft: #5B6B76;
     --break-bg: #EFEAE0;
     --danger: #C24545;
+    --full-bg: #DCEFEA;
+    --full-border: #2A8C82;
+    --full-text: #14524B;
   }
   *{box-sizing:border-box;}
   body{
@@ -121,6 +124,9 @@
     color:#14524B; font-weight:600; font-size:12.5px; line-height:1.3;
   }
   .cell-fixed .cell-subject{background:var(--amber-soft); color:#8C5E10;}
+  .cell-subject.quota-full{
+    background:var(--full-bg); box-shadow:inset 0 0 0 1.5px var(--full-border); color:var(--full-text);
+  }
   .row-break td{
     background:var(--break-bg); color:#7A6E58; font-family:'IBM Plex Mono',monospace;
     font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; padding:6px 8px;
@@ -142,12 +148,20 @@
   .subj-table input[type=text]{min-width:180px;}
   .subj-table input[type=number]{width:80px; text-align:center;}
   .subj-table tr:last-child td{border-bottom:none;}
+  .subj-table tr.quota-full{background:var(--full-bg);}
+  .subj-table tr.quota-full td{color:var(--full-text);}
   .subj-actions{display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-top:1px solid var(--line); flex-wrap:wrap; gap:10px;}
   .subj-total{font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--navy);}
   .col-jp{width:110px;}
   .col-menit{width:110px;}
   .col-jenis{width:160px;}
+  .col-terisi{width:120px;}
   .col-del{width:44px; text-align:center;}
+  .fill-badge{
+    display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600;
+    padding:3px 8px; border-radius:999px; background:#EEF1F3; color:var(--ink-soft);
+  }
+  .fill-badge.full{background:var(--full-border); color:#fff;}
 
   .daycols{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px;}
   .daycol{border:1px solid var(--line); border-radius:10px; padding:12px;}
@@ -161,6 +175,7 @@
   .daycol .periodcount input{width:56px; padding:6px 8px; text-align:center;}
   .daycol .selwrap select{margin-bottom:7px; font-size:12.5px; padding:7px 8px;}
   .daycol .selwrap select:last-child{margin-bottom:0;}
+  .daycol .selwrap select option:disabled{color:#B9C2C9; font-style:italic;}
 
   footer{text-align:center; color:var(--ink-soft); font-size:12px; margin-top:30px;}
 
@@ -203,7 +218,7 @@
     <div>
       <div class="eyebrow">Generator Jadwal · SD/MI</div>
       <h1>Jadwal Pelajaran Anti&nbsp;Bentrok</h1>
-      <p>Pilih kelas untuk memuat referensi mata pelajaran &amp; JP dari Struktur Kurikulum SD (Permendikdasmen No. 13/2025), lalu susun sendiri mata pelajaran tiap hari secara manual sesuai kebutuhan sekolah Anda.</p>
+      <p>Pilih kelas untuk memuat referensi mata pelajaran &amp; JP dari Struktur Kurikulum SD (Permendikdasmen No. 13/2025), lalu susun sendiri mata pelajaran tiap hari secara manual sesuai kebutuhan sekolah Anda. Mapel yang JP mingguannya sudah terpenuhi otomatis ditandai warna dan tidak bisa dipilih lagi.</p>
     </div>
     <div class="badge">1 JP = 35 menit</div>
   </header>
@@ -256,7 +271,7 @@
   <div id="dayPanelWrap"></div>
   <div id="output"></div>
 
-  <footer>Daftar mapel &amp; JP referensi mengacu pada lampiran Struktur Kurikulum SD (Permendikdasmen No. 13/2025), namun dapat Anda ubah bebas. Penempatan mata pelajaran di tiap hari &amp; jam ke berapa diisi manual sepenuhnya oleh Anda pada panel "Susun Mata Pelajaran per Hari".</footer>
+  <footer>Daftar mapel &amp; JP referensi mengacu pada lampiran Struktur Kurikulum SD (Permendikdasmen No. 13/2025), namun dapat Anda ubah bebas. Penempatan mata pelajaran di tiap hari &amp; jam ke berapa diisi manual sepenuhnya oleh Anda pada panel "Susun Mata Pelajaran per Hari". Mapel dengan JP referensi &gt; 0 yang jumlah kemunculannya di jadwal sudah mencapai target akan diberi warna hijau muda dan opsinya dikunci di sel lain hingga Anda menguranginya.</footer>
 
 </div>
 
@@ -370,6 +385,23 @@ function resizeDay(day, n){
   manualSchedule[day] = arr;
 }
 
+/* ---------------- Hitung berapa kali tiap kode mapel/kegiatan sudah dipakai di jadwal ---------------- */
+function computeFilledCounts(){
+  const counts = {};
+  DAYS.forEach(d=>{
+    (manualSchedule[d]||[]).forEach(code=>{
+      if(code) counts[code] = (counts[code]||0) + 1;
+    });
+  });
+  return counts;
+}
+// Sebuah mapel dianggap "penuh" (JP terpenuhi) bila punya target JP > 0 dan jumlah
+// kemunculannya di seluruh jadwal minggu ini sudah mencapai/melebihi target tsb.
+function isQuotaFull(subject, filledCounts){
+  if(!subject || !(subject.hours > 0)) return false;
+  return (filledCounts[subject.code] || 0) >= subject.hours;
+}
+
 // Satu timeline bersama untuk semua hari (kolom "Waktu" tunggal di sebelah "Jam ke-"),
 // selaras dengan praktik sekolah: jam ke-1, ke-2, dst dimulai di jam yang sama tiap hari.
 // Durasi tiap jam ke- mengikuti kegiatan dengan durasi terpanjang pada jam ke- tsb di
@@ -419,8 +451,16 @@ function renderEditPanel(){
   const wrap = document.getElementById('editPanelWrap');
   if(!currentKelas){ wrap.innerHTML=''; return; }
 
-  const rows = customSubjects.map((s,i)=>`
-    <tr>
+  const filledCounts = computeFilledCounts();
+
+  const rows = customSubjects.map((s,i)=>{
+    const filled = filledCounts[s.code] || 0;
+    const full = isQuotaFull(s, filledCounts);
+    const terisiHtml = s.hours>0
+      ? `<span class="fill-badge ${full?'full':''}">${filled}/${s.hours} JP${full?' ✓':''}</span>`
+      : `<span class="fill-badge">${filled}×</span>`;
+    return `
+    <tr class="${full?'quota-full':''}">
       <td><input type="text" class="subjName" data-i="${i}" value="${escapeHtml(s.name)}" placeholder="Nama mapel / kegiatan"></td>
       <td class="col-jp"><input type="number" class="subjHours" data-i="${i}" value="${s.hours}" min="0" max="20" step="1"></td>
       <td class="col-menit"><input type="number" class="subjMinutes" data-i="${i}" value="${s.minutes||JP_MINUTES}" min="5" max="90" step="5" title="Durasi per jam ke- untuk kegiatan ini (menit)"></td>
@@ -430,17 +470,19 @@ function renderEditPanel(){
           <option value="rutin" ${s.type==='rutin'?'selected':''}>Kegiatan Rutin</option>
         </select>
       </td>
+      <td class="col-terisi">${terisiHtml}</td>
       <td class="col-del"><button class="small danger subjDel" data-i="${i}" title="Hapus baris">✕</button></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   wrap.innerHTML = `
     <div class="panel no-print" id="editPanel">
       <div class="tablecard-head" style="padding:0 0 14px; border:none;">
         <h2 style="font-size:17px;">Mata Pelajaran &amp; Kegiatan Rutin</h2>
-        <p style="color:var(--ink-soft); font-size:12.5px;">Isi/ubah manual — nama, JP referensi per minggu, dan jenis (Mata Pelajaran atau Kegiatan Rutin seperti Upacara Bendera/SPN/Pembiasaan). Semua baris di sini otomatis muncul sebagai pilihan pada panel penyusunan jadwal per hari di bawah.</p>
+        <p style="color:var(--ink-soft); font-size:12.5px;">Isi/ubah manual — nama, JP referensi per minggu, dan jenis (Mata Pelajaran atau Kegiatan Rutin seperti Upacara Bendera/SPN/Pembiasaan). Semua baris di sini otomatis muncul sebagai pilihan pada panel penyusunan jadwal per hari di bawah. Baris yang berwarna hijau berarti JP mingguannya sudah terpenuhi di jadwal — kolom "Terisi" menunjukkan progresnya.</p>
       </div>
       <table class="subj-table">
-        <thead><tr><th>Nama</th><th class="col-jp">JP / Minggu (ref.)</th><th class="col-menit">Durasi (menit)</th><th class="col-jenis">Jenis</th><th class="col-del"></th></tr></thead>
+        <thead><tr><th>Nama</th><th class="col-jp">JP / Minggu (ref.)</th><th class="col-menit">Durasi (menit)</th><th class="col-jenis">Jenis</th><th class="col-terisi">Terisi</th><th class="col-del"></th></tr></thead>
         <tbody id="subjRows">${rows}</tbody>
       </table>
       <div class="subj-actions" style="padding-left:0; padding-right:0;">
@@ -465,7 +507,9 @@ function renderEditPanel(){
     inp.addEventListener('input', e=>{
       const v = parseInt(e.target.value,10);
       customSubjects[+e.target.dataset.i].hours = isNaN(v) ? 0 : Math.max(0, v);
-      updateTotalLabel();
+      renderEditPanel();
+      renderDayPanel();
+      renderSchedulePart();
     });
   });
   document.querySelectorAll('.subjMinutes').forEach(inp=>{
@@ -478,6 +522,7 @@ function renderEditPanel(){
   document.querySelectorAll('.subjType').forEach(sel=>{
     sel.addEventListener('change', e=>{
       customSubjects[+e.target.dataset.i].type = e.target.value;
+      renderEditPanel();
       renderDayPanel();
       renderSchedulePart();
     });
@@ -514,13 +559,15 @@ function renderDayPanel(){
   const wrap = document.getElementById('dayPanelWrap');
   if(!currentKelas){ wrap.innerHTML=''; return; }
 
+  const filledCounts = computeFilledCounts();
+
   wrap.innerHTML = `
     <div class="panel no-print" id="dayPanel">
       <div class="tablecard-head" style="padding:0 0 14px; border:none;">
         <h2 style="font-size:17px;">Susun Jadwal per Hari (Manual)</h2>
-        <p style="color:var(--ink-soft); font-size:12.5px;">Atur jumlah jam tiap hari, lalu pilih mata pelajaran atau kegiatan rutin (Upacara Bendera/SPN/Pembiasaan/lainnya) untuk tiap jam ke- secara manual. Semua pilihan bisa diletakkan di jam berapa pun dan hari apa pun.</p>
+        <p style="color:var(--ink-soft); font-size:12.5px;">Atur jumlah jam tiap hari, lalu pilih mata pelajaran atau kegiatan rutin (Upacara Bendera/SPN/Pembiasaan/lainnya) untuk tiap jam ke- secara manual. Mapel yang JP-nya sudah terpenuhi akan tampak abu-abu dan terkunci pada pilihan di sel lain.</p>
       </div>
-      <div class="daycols" id="daycols">${DAYS.map(d=>dayColumnHtml(d)).join('')}</div>
+      <div class="daycols" id="daycols">${DAYS.map(d=>dayColumnHtml(d, filledCounts)).join('')}</div>
     </div>`;
 
   document.querySelectorAll('.dayCountInput').forEach(inp=>{
@@ -535,15 +582,17 @@ function renderDayPanel(){
     sel.addEventListener('change', e=>{
       const d = e.target.dataset.day, idx = +e.target.dataset.idx;
       manualSchedule[d][idx] = e.target.value;
+      renderDayPanel();
+      renderEditPanel();
       renderSchedulePart();
     });
   });
 }
-function dayColumnHtml(d){
+function dayColumnHtml(d, filledCounts){
   const n = dayPeriods[d] || 0;
   let selects = '';
   for(let i=0;i<n;i++){
-    selects += `<select class="manualSel" data-day="${d}" data-idx="${i}">${subjectOptions(manualSchedule[d][i])}</select>`;
+    selects += `<select class="manualSel" data-day="${d}" data-idx="${i}">${subjectOptions(manualSchedule[d][i], filledCounts)}</select>`;
   }
   return `<div class="daycol">
     <h3>${d}</h3>
@@ -551,18 +600,29 @@ function dayColumnHtml(d){
     <div class="selwrap">${selects}</div>
   </div>`;
 }
-function subjectOptions(selectedCode){
+// selectedCode = kode yang sedang terisi pada sel select ini (jika ada), supaya sel itu
+// sendiri tetap bisa menampilkan pilihannya meski kuota JP mapel tsb sudah penuh.
+function subjectOptions(selectedCode, filledCounts){
   const rutin = customSubjects.filter(s=>s.type==='rutin' && s.name.trim()!=='');
   const mapel = customSubjects.filter(s=>s.type!=='rutin' && s.name.trim()!=='');
   let opts = `<option value="">— kosong —</option>`;
+  const buildOption = s=>{
+    const isCurrent = s.code===selectedCode;
+    const full = isQuotaFull(s, filledCounts);
+    // kuota dihitung termasuk sel ini sendiri bila sel ini yang memegang kode tsb,
+    // jadi untuk sel lain (bukan pemegang saat ini) opsi dikunci begitu kuota tercapai.
+    const locked = full && !isCurrent;
+    const label = full ? `${escapeHtml(s.name)} — JP Terpenuhi ✓` : escapeHtml(s.name);
+    return `<option value="${s.code}" ${s.code===selectedCode?'selected':''} ${locked?'disabled':''} ${full?'style="color:#14524B;font-weight:600;"':''}>${label}</option>`;
+  };
   if(rutin.length){
     opts += `<optgroup label="Kegiatan Rutin">`;
-    rutin.forEach(s=>{ opts += `<option value="${s.code}" ${s.code===selectedCode?'selected':''}>${escapeHtml(s.name)}</option>`; });
+    rutin.forEach(s=>{ opts += buildOption(s); });
     opts += `</optgroup>`;
   }
   if(mapel.length){
     opts += `<optgroup label="Mata Pelajaran">`;
-    mapel.forEach(s=>{ opts += `<option value="${s.code}" ${s.code===selectedCode?'selected':''}>${escapeHtml(s.name)}</option>`; });
+    mapel.forEach(s=>{ opts += buildOption(s); });
     opts += `</optgroup>`;
   }
   return opts;
@@ -590,6 +650,8 @@ function renderSchedulePart(){
     return;
   }
 
+  const filledCounts = computeFilledCounts();
+
   const schedule = {};
   let mapelFilled = 0, rutinFilled = 0;
   DAYS.forEach(d=>{
@@ -598,7 +660,7 @@ function renderSchedulePart(){
       const item = customSubjects.find(s=>s.code===code);
       if(!item) return null;
       if(item.type==='rutin') rutinFilled++; else mapelFilled++;
-      return {label:item.name, code:item.code, type:item.type, minutes:item.minutes};
+      return {label:item.name, code:item.code, type:item.type, minutes:item.minutes, full:isQuotaFull(item, filledCounts)};
     });
   });
 
@@ -637,7 +699,8 @@ function renderSchedulePart(){
       const item = schedule[d][p-1];
       if(!item){ html += `<td class="empty-cell">—</td>`; return; }
       const cls = item.type==='rutin' ? 'cell-fixed' : '';
-      html += `<td class="${cls}"><span class="cell-subject">${item.label}</span></td>`;
+      const subjCls = item.full ? 'cell-subject quota-full' : 'cell-subject';
+      html += `<td class="${cls}"><span class="${subjCls}">${item.full?'✓ ':''}${item.label}</span></td>`;
     });
     html += `</tr>`;
   }
@@ -646,6 +709,7 @@ function renderSchedulePart(){
     <div class="legend">
       <span><span class="dot" style="background:#DD9A2B"></span>Kegiatan rutin (Upacara / SPN / Pembiasaan — durasi Pembiasaan default 15 menit)</span>
       <span><span class="dot" style="background:#2A8C82"></span>Mata pelajaran (durasi standar ${JP_MINUTES} menit/JP)</span>
+      <span><span class="dot" style="background:#2A8C82;box-shadow:inset 0 0 0 1px #14524B;"></span>JP mapel sudah terpenuhi (tidak bisa dipilih lagi di sel lain)</span>
       ${breakAfter>0 ? `<span><span class="dot" style="background:#C9BFA5"></span>Istirahat ${breakDurasi} menit, setelah jam ke-${breakAfter} (diatur manual)</span>` : `<span><span class="dot" style="background:#C9BFA5"></span>Tanpa istirahat (diatur manual)</span>`}
     </div>
     <div class="print-only-footer">
